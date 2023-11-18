@@ -10,6 +10,7 @@ import {
     OK,
     UNAUTHORIZED,
 } from '../constants/httpStatus.js';
+import nodemailer from 'nodemailer';
 // import Users from '../models/register.js';
 // import { PENDING } from '../constants/constants.js';
 import {
@@ -18,9 +19,9 @@ import {
 } from '../constants/responseMessages.js';
 import Users from '../models/Users.js';
 import { GenerateToken, ValidateToken, VerifyToken } from '../helpers/token.js';
-// import pkg from 'jsonwebtoken';
+import pkg from 'jsonwebtoken';
 
-// const { verify, decode } = pkg;
+const { verify, decode } = pkg;
 
 // const {
 //     GET_SUCCESS_MESSAGES,
@@ -176,6 +177,132 @@ export const login = async (req, res) => {
         // );
     }
 };
+
+// @desc    forgotPasswordEmail
+// @route   GET api/auth/forgotPasswordEmail
+// @access  Public
+
+export const forgotPasswordEmail = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (email) {
+            const user = await Users.findOne({
+                Email: email,
+            });
+            if (user) {
+                const secret = user._id + process.env.JWT_SECRET_KEY;
+                // console.log(user, "===>> user")
+                // console.log(user._id, "===>> userId")
+                // console.log(process.env.JWT_SECRET_KEY, "===>> secretKey")
+                const token = GenerateToken({ data: secret, expiresIn: '30m' });
+                // return res.send(token)
+                const link = `${process.env.WEB_LINK}/api/auth/resetPassword/${user._id}/${token}`;
+
+                const transporter = nodemailer.createTransport({
+                    service: 'gmail',
+                    auth: {
+                        user: process.env.EMAIL,
+                        pass: process.env.PASSWORD,
+                    },
+                });
+
+                // const transporter = nodemailer.createTransport({
+                //     host: process.env.MAILTRAPHOST,
+                //     port: process.env.MAILTRAPPORT,
+                //     auth: {
+                //         user: process.env.MAILTRAPUSERNAME,
+                //         pass: process.env.MAILTRAPPASSWORD,
+                //     },
+                // });
+
+                const mailOptions = {
+                    from: 'innosufiyan@gmail.com',        //email jis se bhejni ho
+                    to: 'innosufiyan@gmail.com',         //jisko email bhejni ho
+                    subject: 'Reset Password',
+                    text: `Please click on the link to reset your password ${link}`,
+                };
+
+                transporter.sendMail(mailOptions, (error, info) => {
+                    if (error) {
+                        console.log(error);
+                        return res
+                            .status(INTERNALERROR)
+                            .send(sendError({ status: false, message: error.message }));
+                    } else {
+                        console.log('Email sent: ' + info.response);
+                        return res.status(OK).send(
+                            sendSuccess({
+                                status: true,
+                                message: 'Reset Password Link Generated'
+                            })
+                        );
+                    }
+                });
+            } else {
+                return res
+                    .status(NOTFOUND)
+                    .send(sendError({ status: false, message: responseMessages.NO_USER_FOUND }));
+            }
+        } else {
+            return res
+                .status(BADREQUEST)
+                .send(sendError({ status: false, message: responseMessages.MISSING_FIELD_EMAIL }));
+        }
+    } catch (error) {
+        return res.status(INTERNALERROR).send(
+            sendError({
+                status: false,
+                message: error.message,
+                data: null,
+            })
+        );
+    }
+};
+export const resetPasswordEmail = async (req, res) => {
+    console.log("resetPasswordEmail controller")
+    try {
+        const { newPassword, confirmNewPassword, token } = req.body;
+        if (newPassword && confirmNewPassword && token) {
+            const { result } = verify(token, process.env.JWT_SECRET_KEY);
+            const userId = result.slice(0, result.length - process.env.JWT_SECRET_KEY.length);
+            const user = await Users.findById(userId);
+            // return res.send(user)
+            if (user) {
+                const salt = genSaltSync(10);
+                const hashedPassword = hashSync(newPassword, salt);
+                await Users.findByIdAndUpdate(userId, {
+                    $set: { Password: hashedPassword },
+                });
+                return res.status(OK).send(
+                    sendSuccess({
+                        status: true,
+                        message: 'Password Updated Successfully',
+                    })
+                );
+            } else {
+                return res
+                    .status(NOTFOUND)
+                    .send(sendError({ status: false, message: responseMessages.NO_USER }));
+            }
+        } else {
+            return res
+                .status(BADREQUEST)
+                .send(sendError({ status: false, message: responseMessages.MISSING_FIELDS }));
+        }
+    } catch (error) {
+        console.log(error, "error")
+        return res.status(INTERNALERROR).send(
+            sendError({
+                status: false,
+                message: error.message,
+                data: null,
+            })
+        );
+    }
+};
+
+
+
 
 // @desc    RefreshToken
 // @route   GET api/auth/refreshToken

@@ -38,6 +38,15 @@ const register = mongoose.Schema(
             required: [true, 'Please Add Password'],
             minlength: 8,
             trim: true,
+        },
+        PasswordResetToken: {
+            type: String,
+            required: [true, 'Please Add Password'],
+            minlength: 8,
+            trim: true,
+        },
+        ExpiryPasswordResetToken: {
+            type: Date,
         }
     },
     {
