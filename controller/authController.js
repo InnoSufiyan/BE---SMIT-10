@@ -96,9 +96,7 @@ export const signUp = async (req, res) => {
                     } else {
                         // return res.send(savedUser);
                         savedUser.Password = undefined;
-                        const token = sign({ result: data }, process.env.JWT_SECRET_KEY, {
-                            expiresIn: expiresIn,
-                        });
+                        const token = GenerateToken({ data: user, expiresIn: '24h' });
                         return res.status(CREATED).send(
                             sendSuccess({
                                 status: true,
