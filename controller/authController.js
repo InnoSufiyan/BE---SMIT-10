@@ -21,7 +21,7 @@ import Users from '../models/Users.js';
 import { GenerateToken, ValidateToken, VerifyToken } from '../helpers/token.js';
 import pkg from 'jsonwebtoken';
 
-const { verify, decode } = pkg;
+const { verify, decode, sign } = pkg;
 
 // const {
 //     GET_SUCCESS_MESSAGES,
@@ -65,6 +65,8 @@ export const signUp = async (req, res) => {
 
 
         const user = await Users.findOne({ Email: email });
+
+        console.log(user, "====>> user")
         if (user) {
             return res
                 .status(ALREADYEXISTS)
@@ -96,9 +98,7 @@ export const signUp = async (req, res) => {
                     } else {
                         // return res.send(savedUser);
                         savedUser.Password = undefined;
-                        const token = sign({ result: data }, process.env.JWT_SECRET_KEY, {
-                            expiresIn: expiresIn,
-                        });
+                        const token = GenerateToken({ data: user, expiresIn: '24h' });
                         return res.status(CREATED).send(
                             sendSuccess({
                                 status: true,
@@ -141,6 +141,7 @@ export const login = async (req, res) => {
                 if (user.Email === email && isValid) {
                     user.Password = undefined;
                     const token = GenerateToken({ data: user, expiresIn: '24h' });
+                    res.cookie('token', token, { httpOnly: true });
                     res.status(OK).send(
                         sendSuccess({
                             status: true,
