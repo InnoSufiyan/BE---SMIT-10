@@ -39,6 +39,16 @@ const register = mongoose.Schema(
             minlength: 8,
             trim: true,
         },
+        otp: {
+            type: String,
+        },
+        expiresIn: {
+            type: Date
+        },
+        isVerified: {
+            type: Boolean,
+            default: false
+        },
         // PasswordResetToken: {
         //     type: String,
         //     required: [true, 'Please Add Password'],

@@ -1,5 +1,5 @@
 export const responseMessages = {
-    GET_SUCCESS_MESSAGES: 'Got resource successfully',
+    GET_SUCCESS_MESSAGES: 'Got Resource Successfully',
     GET_UNSUCCESS_MESSAGES: 'No resource found',
     ADD_SUCCESS_MESSAGES: 'resource added successfully',
     UPDATE_SUCCESS_MESSAGES: 'resource updated successfully',

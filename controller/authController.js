@@ -1,5 +1,6 @@
 import { hashSync, genSaltSync, compareSync } from 'bcrypt';
 import { sendError, sendSuccess } from '../utils/responses.js';
+import { v4 as uuidv4 } from 'uuid';
 import {
     ALREADYEXISTS,
     BADREQUEST,
@@ -20,6 +21,7 @@ import {
 import Users from '../models/Users.js';
 import { GenerateToken, ValidateToken, VerifyToken } from '../helpers/token.js';
 import pkg from 'jsonwebtoken';
+import { sendEmailOTP } from '../helpers/merayFunction.js';
 
 const { verify, decode, sign } = pkg;
 
@@ -44,11 +46,10 @@ const { verify, decode, sign } = pkg;
 // @route   POST api/auth/signup
 // @access  Public
 
-
-
 export const signUp = async (req, res) => {
     console.log("signup controller")
     console.log(req.body, "===>>> req.body")
+
     try {
         const { firstName, lastName, userName, email, password, cPassword } =
             req.body;
@@ -72,6 +73,7 @@ export const signUp = async (req, res) => {
                 .status(ALREADYEXISTS)
                 .send(sendError({ status: false, message: responseMessages.USER_EXISTS }));
         } else {
+
             const user = await Users.findOne({ UserName: userName });
             if (user) {
                 return res
@@ -89,7 +91,11 @@ export const signUp = async (req, res) => {
                         UserName: userName,
                         Password: hashSync(password, salt),
                     });
-
+                    //otp
+                    const otp = uuidv4().slice(0, 6);
+                    console.log(otp, "==>> otp ban gaya")
+                    doc.otp = otp
+                    doc.expiresIn = Date.now() + 60000; // OTP expires in 10 minutes
                     let savedUser = await doc.save();
                     if (savedUser.errors) {
                         return res
@@ -98,7 +104,11 @@ export const signUp = async (req, res) => {
                     } else {
                         // return res.send(savedUser);
                         savedUser.Password = undefined;
-                        const token = GenerateToken({ data: user, expiresIn: '24h' });
+                        const token = GenerateToken({ data: savedUser, expiresIn: '24h' });
+
+                        // sendEmail()
+                        const emailResponse = await sendEmailOTP(email, otp);
+
                         return res.status(CREATED).send(
                             sendSuccess({
                                 status: true,
@@ -121,6 +131,57 @@ export const signUp = async (req, res) => {
             .status(500) //INTERNALERROR
             // .send(sendError({ status: false, message: error.message, error }));
             .send(error.message);
+    }
+};
+
+
+// @desc    VERIFY EMAIL
+// @route   POST api/auth/verifyEmail
+// @access  Private
+
+export const verifyEmail = async (req, res) => {
+    console.log(req.user, "===>>> req.user")
+    try {
+        const { otp } = req.body;
+        if (otp) {
+            const user = await Users.findOne({ otp: otp, _id: req.user._id });
+            if (user) {
+                console.log(user, "===>> user")
+                console.log(user.expiresIn > Date.now())
+                if (user.expiresIn > Date.now()) {
+                    user.isVerified = true;
+                    user.otp = undefined;
+                    user.otpExpires = undefined;
+                    await user.save();
+                    return res.status(OK).send(
+                        sendSuccess({
+                            status: true,
+                            message: 'Email Verified Successfully',
+                            data: user,
+                        })
+                    );
+                } else {
+                    return res.status(OK).send(
+                        sendError({
+                            status: false,
+                            message: 'OTP has expired. Please request a new OTP',
+                        })
+                    );
+                }
+            } else {
+                return res
+                    .status(FORBIDDEN)
+                    .send(sendError({ status: false, message: 'Invalid OTP' }));
+            }
+        } else {
+            return res
+                .status(BADREQUEST)
+                .send(sendError({ status: false, message: MISSING_FIELDS }));
+        }
+    } catch (error) {
+        return res
+            .status(INTERNALERROR)
+            .send(sendError({ status: false, message: error.message, error }));
     }
 };
 

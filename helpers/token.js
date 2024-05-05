@@ -1,18 +1,20 @@
 import pkg from 'jsonwebtoken';
+import dotenv from "dotenv";
 
 const { sign, verify } = pkg;
 
 
-export const GenerateToken = ({ data, expiresIn }) => {
+dotenv.config();
+
+export const GenerateToken = ({ data }) => {
     //make the key more harder
     //expires in should also be from .env file
     //good approach
-    return sign({ result: data }, process.env.JWT_SECRET_KEY, {
-        expiresIn: expiresIn,
-    });
+    return sign({ result: data }, process.env.JWT_SECRET_KEY);
 };
 
 export const VerifyToken = (token) => {
+    
     return verify(token, process.env.JWT_SECRET_KEY);
 };
 
@@ -23,6 +25,8 @@ export const ValidateToken = ({ token, key }) => {
 
 
 export const validateToken = async (req, res, next) => {
+
+    console.log(process.env.JWT_SECRET_KEY, "====>> JWT SECRET KEY")
     let token;
     const { authorization } = req.headers;
     console.log(authorization, "===>>authorization")
@@ -32,9 +36,10 @@ export const validateToken = async (req, res, next) => {
             token = authorization.split(' ')[1];
             console.log(token, "====>>token")
             // Verify Token
+            const verification = verify(token, process.env.JWT_SECRET_KEY);
             const { result } = verify(token, process.env.JWT_SECRET_KEY);
             // Get User from Token
-            console.log(result, "====>>result")
+            console.log(verification, "====>>verification")
             req.user = result;
             next();
         } catch (error) {
